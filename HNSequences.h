@@ -26,22 +26,22 @@
 #import <Foundation/Foundation.h>
 
 /**
- * 差分抽出を行う対象の符号列にアクセスするためのプロトコル
+ * protocol for accessing two sequences
  */
 @protocol HNSequences <NSObject>
 
 /**
- * 指定した符号列の長さを得ます。
- * @param seqNo 0または1を指定します。
- * @return 符号列の長さを返します。
+ * returns length of the sequence.
+ * @param seqNo specify 0 or 1
+ * @return length of the sequence
  */
 - (NSInteger)lengthOfSequence:(NSInteger)seqNo;
 
 /**
- * 指定したインデックスの符号が一致するかどうかを調べます。
- * @param index0 符号列0のインデックス
- * @param index1 符号列1のインデックス
- * @return 一致するならYES、一致しないならNO
+ * determine whether two elements are same
+ * @param index0 index of sequence 0
+ * @param index1 index of sequence 1
+ * @return returns YES when elements are same
  */
 - (BOOL)isSameElementAtIndexInSequence0:(NSInteger)index0 andElementAtIndexInSequence1:(NSInteger)index1;
 

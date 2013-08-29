@@ -29,12 +29,12 @@
 @class HNDiffOperation;
 
 /**
- * 差分抽出を行うクラス
+ * The class which detects the difference between two sequences.
  *
- * このクラスは次の論文で示されている差分抽出アルゴリズムを用いて処理を行います。
- * S Wu, U Manber, G Myers, W Miller:
- * "An O(NP) Sequence Comparison Algorithm",
- * Information Processing Letters (1990)
+ * This class uses the algorithm described in:
+ *     S Wu, U Manber, G Myers, W Miller:
+ *     "An O(NP) Sequence Comparison Algorithm",
+ *     Information Processing Letters (1990)
  */
 @interface HNDiff : NSObject
 

@@ -32,54 +32,55 @@ struct FPData;
 
 typedef std::vector<FPData>	FPDataVector;
 
-// furthest point に関する情報
+// data about a furthest point
 struct FPData
 {
-    NSInteger y;            // furthest point の y 座標（論文アルゴリズム中の fp[k] に相当）
-    NSInteger x;            // furthest point の x 座標
-    FPDataVector::difference_type prevFPDataIndex;    // スネーク前の点の FPData （HNDiffのm_fpDataVectorメンバのインデックス）
+    NSInteger y;            // y-coordinate of the furthest point (corresponding to fp[k] in Wu's algorithm)
+    NSInteger x;            // x-coordinate of the furthest point
+    FPDataVector::difference_type prevFPDataIndex;    // FPData located before snake (as index for m_fpDataVector)
 };
 
 @implementation HNDiff {
 @private
-    id <HNSequences> m_sequences;   // 差分抽出を行う符号列たち
-    BOOL m_isSwapped;               // m <= n の条件を満たすために入れ替えを行っているならYES
-    NSMutableArray *m_diffResult;   // 差分抽出結果
+    id <HNSequences> m_sequences;   // target sequences
+    BOOL m_isSwapped;               // YES if swapped so that it meets the condition of m <= n
+    NSMutableArray *m_diffResult;   // result of detection
 
-    // 以下、detect:中にのみ有効な情報
-    FPDataVector m_fpDataVector;            // 生成した FPData を入れておく配列
-    FPDataVector::size_type *m_fp;          // diagonal k 上の furthest point 情報（論文アルゴリズム中の fp に相当。ただし、値が fpDataVectorのインデックス + 1 となっている点が異なる。0 は未探査（論文中では -1）を表す）
-    FPDataVector::size_type *m_fpBuffer;    // m_fp のメモリを確保している実体（m_fp はこれをずらしている）
+    // the following is available only in detect:
+    FPDataVector m_fpDataVector;            // array to which generated FPData is added.
+    FPDataVector::size_type *m_fp;          // working storage for furthest point on diagonal k
+                                            // (corresponding to fp in Wu's algorithm except that the value is (index-of-fpDataVector + 1).
+                                            // if the value is 0, it meens "not computed" and is described as -1 in Wu's one.)
+    FPDataVector::size_type *m_fpBuffer;    // actual allocated buffer of m_fp. (m_fp is moved pointer from this)
 }
 
 /**
- * 差分を抽出します。
- * @param sequences 差分抽出を行う符号列
+ * Detects differences.
+ * @param sequences target sequences
  */
 - (void)detect:(id<HNSequences>)sequences {
 
-    // 探索結果となる FPData の x, y はそれぞれ
-    // 短い符号列のインデックス + 1、長い符号列のインデックス + 1 に
-    // なっていることに注意。
+    // Note that each x, y in FPData equals to
+    // index-of-shorter-sequence + 1, index-of-longer-sequence + 1.
     
     m_sequences = sequences;
     m_isSwapped = ([sequences lengthOfSequence:0] > [sequences lengthOfSequence:1]);
     m_diffResult = [[NSMutableArray alloc] init];
     
     if (nil == sequences) {
-        // 符号列がセットされてない場合は結果をクリアするだけ
+        // only clear the result if the target sequences are not set.
         return;
     }
     
-    // 前処理
+    // preprocess
     NSInteger m = [self lengthOfSequence:0];
     NSInteger n = [self lengthOfSequence:1];
     NSInteger delta = n - m;
     
     if (0 == m) {
-        // 片方のシーケンスの長さが0の場合は特別にハンドリング
+        // special handling of an empty sequence
         if (0 != n) {
-            // もう一方は長さがある場合
+            // the longer sequence is not empty
             if (m_isSwapped) {
                 [self outputOperation:HNDiffOperatorDeleted
                                 from0:0
@@ -99,15 +100,15 @@ struct FPData
     
     m_fpBuffer = static_cast<FPDataVector::size_type *>(malloc((m + n + 3) * sizeof(FPDataVector::size_type)));
     if (NULL == m_fpBuffer) {
-        // メモリが足りない
+        // out of memory
         return;
     }
     memset(m_fpBuffer, 0, (m + n + 3) * sizeof(FPDataVector::size_type));
     m_fp = m_fpBuffer + m + 1;
     
-    // 探索
+    // traverse
     NSInteger p;
-    for (p = 0; p < m; ++p) {   // p < m は念のため
+    for (p = 0; p < m; ++p) {   // "p < m" is for just in case
         NSInteger k;
         for (k = -p; k <= delta - 1; ++k) {
             [self snake:k];
@@ -123,19 +124,19 @@ struct FPData
         }
     }
     
-    // 探索したパスを復元して差分抽出結果を作る
+    // trace the path and make a diff-result
     [self makeResult];
     
-    // 後処理
+    // postprocess
     free(m_fpBuffer);
     m_fpBuffer = m_fp = NULL;
     m_fpDataVector.clear();
 }
 
 /**
- * snake処理
- * 単に diagonal edge をたどる処理（snake 処理）に加え、
- * たどったパスの記憶も行います。
+ * The "snake"
+ *
+ * It does not only traverse diagnonal edges, but remember its path
  */
 - (void)snake:(NSInteger)k {
     FPDataVector::difference_type fpDataIndex0 = m_fp[k - 1] - 1;
@@ -164,12 +165,11 @@ struct FPData
 }
 
 /**
- * 探索のパスをたどって差分抽出結果を求めます。
+ * Traces the path and makes a diff-result
  */
 - (void)makeResult {
-    // まず、fp[delta] - 1 のインデックスを代入
-    // これは最後のスネークで見つかるはずなので
-    // 最後に追加された furthest pint 情報のインデックスに等しい
+    // First of all, let fpDataIndex be the index of (fp[delta] - 1)
+    // It was found in last snake, so it equals to the index of the last furthest point.
     FPDataVector::difference_type fpDataIndex = m_fpDataVector.size() - 1;
     const FPData *data = &m_fpDataVector[fpDataIndex];
     NSInteger to0 = (m_isSwapped) ? data->y : data->x;
@@ -181,9 +181,9 @@ struct FPData
         NSInteger from0 = (m_isSwapped) ? data->y : data->x;
         NSInteger from1 = (m_isSwapped) ? data->x : data->y;
         if (from1 - from0 < to1 - to0) {
-            // 挿入
+            // inserted
             if (from1 + 1 < to1) {
-                // スネークの分を先に出力
+                // output the path of skane in advance
                 [self outputOperation:HNDiffOperatorNotChanged
                                 from0:from0
                                 from1:from1 + 1
@@ -196,9 +196,9 @@ struct FPData
                            count0:0
                            count1:1];
         } else {
-            // 削除
+            // deleted
             if (from0 + 1 < to0) {
-                // スネークの分を先に出力
+                // output the path of skane in advance
                 [self outputOperation:HNDiffOperatorNotChanged
                                 from0:from0 + 1
                                 from1:from1
@@ -216,9 +216,9 @@ struct FPData
         to1 = from1;
     }
     if (to0 != 0) {
-        // 最初のoperationが変化なしの場合のみここにくる
-        // 最初が追加や削除なら、初回の探索で (0,0) が furthest point になるので
-        // ループを抜けた時点で to0 == to1 == 0 になっているはずだから。
+        // It reaches here when the first operation is "not changed".
+        // Because the first furthest point should be (0,0) if the first operation is "inserted" or "deleted",
+        // then it should be to0 == to1 == 0 at the end of the loop.
         [self outputOperation:HNDiffOperatorNotChanged
                         from0:0
                         from1:0
@@ -230,20 +230,21 @@ struct FPData
 }
 
 /**
- * makeResultの過程でdiff操作を（後ろから）出力します。
- * @param op 操作の種類
- * @param from0 符号列0のインデックス
- * @param from1 符号列1のインデックス
- * @param count0 符号列0がこの操作でどれだけ進むか（操作の符号数）
- * @param count1 符号列1がこの操作でどれだけ進むか（操作の符号数）
+ * Outputs the result. Called in makeResult.
+ * @param op operator
+ * @param from0 index in sequence 0
+ * @param from1 index in sequence 1
+ * @param count0 count of elements in sequence 0 from from0. (at this operation)
+ * @param count1 count of elements in sequence 1 from from1. (at this operation)
  */
 - (void)outputOperation:(HNDiffOperator)op
                   from0:(NSInteger)from0
                   from1:(NSInteger)from1
                  count0:(NSInteger)count0
                  count1:(NSInteger)count1 {
-    // 連続する削除、連続する挿入は、まとめる。
-    // 挿入－(削除または変更)、削除－(挿入または変更)は、変更にまとめる。
+    // combine each consecutive "deletion"s or consequcive "insertion"s into one.
+    // and if is is found that a consecutive "insertion"-("deletion" or "modification") or a consecutive "insertion"-("deletion" or "modification"),
+    // then it comes into one "modification"
     NSUInteger diffResultSize = [m_diffResult count];
     if (0 < diffResultSize) {
         BOOL toBind = NO;
@@ -276,7 +277,7 @@ struct FPData
         }
     }
     
-    // まとめられなかった場合は追加する
+    // not combined? then append it.
     HNDiffOperation *operation = [[HNDiffOperation alloc] init];
     operation.op = op;
     operation.from0 = from0;
@@ -287,16 +288,16 @@ struct FPData
 }
 
 /**
- * 指定したインデックスの差分操作を返します。
- * @param index インデックス
- * @return 差分操作が返ります。
+ * returns a diff-operation at specified index.
+ * @param index index
+ * @return diff-operation is returned
  */
 - (HNDiffOperation *)operationAtIndex:(NSInteger)index {
     if (nil == m_diffResult) {
         return nil;
     }
     
-    // m_diffResult は逆順に出力されているのでインデックスを逆順に調整する
+    // note that m_diffResult is reverse-ordered
     NSInteger resultIndex = [m_diffResult count] - 1 - index;
     if (resultIndex < 0 || index < 0) {
         return nil;
@@ -306,7 +307,7 @@ struct FPData
 }
 
 /**
- * 差分操作の数を返します。
+ * returns the number of diff-operations.
  */
 - (NSInteger)operationCount {
     return (nil == m_diffResult) ? 0 : [m_diffResult count];
@@ -314,9 +315,9 @@ struct FPData
 
 
 /**
- * 指定した符号列の長さを得ます。
- * @param seqNo 0または1を指定します。
- * @return 符号列の長さを返します。
+ * returns length of the sequence.
+ * @param seqNo specify 0 or 1
+ * @return length of the sequence
  */
 - (NSInteger)lengthOfSequence:(NSInteger)seqNo {
     if (m_isSwapped) {
@@ -326,10 +327,10 @@ struct FPData
 }
 
 /**
- * 指定したインデックスの符号が一致するかどうかを調べます。
- * @param index0 符号列0のインデックス
- * @param index1 符号列1のインデックス
- * @return 一致するならYES、一致しないならNO
+ * determine whether two elements are same
+ * @param index0 index of sequence 0
+ * @param index1 index of sequence 1
+ * @return returns YES when elements are same
  */
 - (BOOL)isSameElementAtIndexInSequence0:(NSInteger)index0 andElementAtIndexInSequence1:(NSInteger)index1 {
     if (m_isSwapped) {

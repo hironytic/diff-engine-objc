@@ -26,30 +26,30 @@
 #import <Foundation/Foundation.h>
 
 typedef enum {
-    HNDiffOperatorInserted,     // （符号列1の符号が）挿入された
-    HNDiffOperatorModified,     // 変更された
-    HNDiffOperatorDeleted,      // （符号列0の符号が）削除された
-    HNDiffOperatorNotChanged,   // 変化なし
+    HNDiffOperatorInserted,     // (the elements of sequence 1 are) inserted
+    HNDiffOperatorModified,     // modified
+    HNDiffOperatorDeleted,      // (the elements of sequence 0 are) deleted
+    HNDiffOperatorNotChanged,   // no change
 } HNDiffOperator;
 
 /**
- * 差分抽出結果に含まれる差分操作1つ分の情報を格納するオブジェクト
+ * one diff-operaton
  */
 @interface HNDiffOperation : NSObject
 
-/** 操作の種類 */
+/** operator */
 @property(nonatomic, assign) HNDiffOperator op;
 
-/** 符号列0のインデックス */
+/** index in sequence 0 */
 @property(nonatomic, assign) NSInteger from0;
 
-/** 符号列1のインデックス */
+/** index in sequence 1 */
 @property(nonatomic, assign) NSInteger from1;
 
-/** 符号列0がこの操作でどれだけ進むか（操作の符号数） */
+/** count of elements in sequence 0 from from0 */
 @property(nonatomic, assign) NSInteger count0;
 
-/** 符号列1がこの操作でどれだけ進むか（操作の符号数） */
+/** count of elements in sequence 1 from from1 */
 @property(nonatomic, assign) NSInteger count1;
 
 @end
